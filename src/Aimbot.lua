@@ -1,393 +1,220 @@
---[[
+PLAYER  = game.Players.LocalPlayer
+MOUSE   = PLAYER:GetMouse()
+CC      = game.Workspace.CurrentCamera
 
-	Universal Aimbot Module by Exunys © CC0 1.0 Universal (2023 - 2024)
-	https://github.com/Exunys
+ENABLED      = false
+ESP_ENABLED  = false
 
-]]
+_G.FREE_FOR_ALL = true
 
---// Cache
+_G.ESP_BIND    = 52
+_G.CHANGE_AIM  = 'q'
 
-local game, workspace = game, workspace
-local getrawmetatable, getmetatable, setmetatable, pcall, getgenv, next, tick, select = getrawmetatable, getmetatable, setmetatable, pcall, getgenv, next, tick, select
-local Vector2new, Vector3new, Vector3zero, CFramenew, Color3fromRGB, Color3fromHSV, Drawingnew, TweenInfonew = Vector2.new, Vector3.new, Vector3.zero, CFrame.new, Color3.fromRGB, Color3.fromHSV, Drawing.new, TweenInfo.new
-local getupvalue, mousemoverel, tablefind, tableremove, stringlower, stringsub, mathclamp = debug.getupvalue, mousemoverel or (Input and Input.MouseMove), table.find, table.remove, string.lower, string.sub, math.clamp
+_G.AIM_AT = 'Head'
 
-local GameMetatable = getrawmetatable(game)
-local __index = GameMetatable.__index
-local __newindex = GameMetatable.__newindex
-local GetService = __index(game, "GetService")
+wait(1)
 
---// Services
-
-local RunService = GetService(game, "RunService")
-local UserInputService = GetService(game, "UserInputService")
-local TweenService = GetService(game, "TweenService")
-local Players = GetService(game, "Players")
-
---// Degrade "__index" and "__newindex" functions if the executor doesn't support "getrawmetatable" properly.
-
-local ReciprocalRelativeSensitivity = false
-
-if select(2, pcall(__index, Players, "LocalPlayer")) then
-	ReciprocalRelativeSensitivity = true
-
-	__index, __newindex = function(Object, Key)
-		return Object[Key]
-	end, function(Object, Key, Value)
-		Object[Key] = Value
-	end
+function GetNearestPlayerToMouse()
+    local PLAYERS      = {}
+    local PLAYER_HOLD  = {}
+    local DISTANCES    = {}
+    for i, v in pairs(game.Players:GetPlayers()) do
+        if v ~= PLAYER then
+            table.insert(PLAYERS, v)
+        end
+    end
+    for i, v in pairs(PLAYERS) do
+        if _G.FREE_FOR_ALL == false then
+            if v and (v.Character) ~= nil and v.TeamColor ~= PLAYER.TeamColor then
+                local AIM = v.Character:FindFirstChild(_G.AIM_AT)
+                if AIM ~= nil then
+                    local DISTANCE                 = (AIM.Position - game.Workspace.CurrentCamera.CoordinateFrame.p).magnitude
+                    local RAY                      = Ray.new(game.Workspace.CurrentCamera.CoordinateFrame.p, (MOUSE.Hit.p - CC.CoordinateFrame.p).unit * DISTANCE)
+                    local HIT, POS                 = game.Workspace:FindPartOnRay(RAY, game.Workspace)
+                    local DIFF                     = math.floor((POS - AIM.Position).magnitude)
+                    PLAYER_HOLD[v.Name .. i]       = {}
+                    PLAYER_HOLD[v.Name .. i].dist  = DISTANCE
+                    PLAYER_HOLD[v.Name .. i].plr   = v
+                    PLAYER_HOLD[v.Name .. i].diff  = DIFF
+                    table.insert(DISTANCES, DIFF)
+                end
+            end
+        elseif _G.FREE_FOR_ALL == true then
+            local AIM = v.Character:FindFirstChild(_G.AIM_AT)
+            if AIM ~= nil then
+                local DISTANCE                 = (AIM.Position - game.Workspace.CurrentCamera.CoordinateFrame.p).magnitude
+                local RAY                      = Ray.new(game.Workspace.CurrentCamera.CoordinateFrame.p, (MOUSE.Hit.p - CC.CoordinateFrame.p).unit * DISTANCE)
+                local HIT, POS                 = game.Workspace:FindPartOnRay(RAY, game.Workspace)
+                local DIFF                     = math.floor((POS - AIM.Position).magnitude)
+                PLAYER_HOLD[v.Name .. i]       = {}
+                PLAYER_HOLD[v.Name .. i].dist  = DISTANCE
+                PLAYER_HOLD[v.Name .. i].plr   = v
+                PLAYER_HOLD[v.Name .. i].diff  = DIFF
+                table.insert(DISTANCES, DIFF)
+            end
+        end
+    end
+    
+    if unpack(DISTANCES) == nil then
+        return false
+    end
+    
+    local L_DISTANCE = math.floor(math.min(unpack(DISTANCES)))
+    if L_DISTANCE > 20 then
+        return false
+    end
+    
+    for i, v in pairs(PLAYER_HOLD) do
+        if v.diff == L_DISTANCE then
+            return v.plr
+        end
+    end
+    return false
 end
 
---// Service Methods
+GUI_MAIN                           = Instance.new('ScreenGui', game.CoreGui)
+GUI_TARGET                         = Instance.new('TextLabel', GUI_MAIN)
+GUI_AIM_AT                         = Instance.new('TextLabel', GUI_MAIN)
 
-local LocalPlayer = __index(Players, "LocalPlayer")
-local Camera = __index(workspace, "CurrentCamera")
+GUI_MAIN.Name                      = 'AIMBOT'
 
-local FindFirstChild, FindFirstChildOfClass = __index(game, "FindFirstChild"), __index(game, "FindFirstChildOfClass")
-local GetDescendants = __index(game, "GetDescendants")
-local WorldToViewportPoint = __index(Camera, "WorldToViewportPoint")
-local GetPartsObscuringTarget = __index(Camera, "GetPartsObscuringTarget")
-local GetMouseLocation = __index(UserInputService, "GetMouseLocation")
-local GetPlayers = __index(Players, "GetPlayers")
+GUI_TARGET.Size                    = UDim2.new(0,200,0,30)
+GUI_TARGET.BackgroundTransparency  = 0.5
+GUI_TARGET.BackgroundColor         = BrickColor.new('Fossil')
+GUI_TARGET.BorderSizePixel         = 0
+GUI_TARGET.Position                = UDim2.new(0.5,-100,0,0)
+GUI_TARGET.Text                    = 'AIMBOT : OFF'
+GUI_TARGET.TextColor3              = Color3.new(1,1,1)
+GUI_TARGET.TextStrokeTransparency  = 1
+GUI_TARGET.TextWrapped             = true
+GUI_TARGET.FontSize                = 'Size24'
+GUI_TARGET.Font                    = 'SourceSansBold'
 
---// Variables
+GUI_AIM_AT.Size                    = UDim2.new(0,200,0,20)
+GUI_AIM_AT.BackgroundTransparency  = 0.5
+GUI_AIM_AT.BackgroundColor         = BrickColor.new('Fossil')
+GUI_AIM_AT.BorderSizePixel         = 0
+GUI_AIM_AT.Position                = UDim2.new(0.5,-100,0,30)
+GUI_AIM_AT.Text                    = 'AIMING : HEAD'
+GUI_AIM_AT.TextColor3              = Color3.new(1,1,1)
+GUI_AIM_AT.TextStrokeTransparency  = 1
+GUI_AIM_AT.TextWrapped             = true
+GUI_AIM_AT.FontSize                = 'Size18'
+GUI_AIM_AT.Font                    = 'SourceSansBold'
 
-local RequiredDistance, Typing, Running, ServiceConnections, Animation, OriginalSensitivity = 2000, false, false, {}
-local Connect, Disconnect, GetRenderProperty, SetRenderProperty = __index(game, "DescendantAdded").Connect
+local TRACK = false
 
-local UWP = false
+function CREATE(BASE, TEAM)
+    local ESP_MAIN                   = Instance.new('BillboardGui', PLAYER.PlayerGui)
+    local ESP_DOT                    = Instance.new('Frame', ESP_MAIN)
 
-do
-	xpcall(function()
-		local TemporaryDrawing = Drawingnew("Line")
-		GetRenderProperty = getupvalue(getmetatable(TemporaryDrawing).__index, 4)
-		SetRenderProperty = getupvalue(getmetatable(TemporaryDrawing).__newindex, 4)
-		TemporaryDrawing.Remove(TemporaryDrawing)
-	end, function()
-		UWP, GetRenderProperty, SetRenderProperty = true, function(Object, Key)
-			return Object[Key]
-		end, function(Object, Key, Value)
-			Object[Key] = Value
-		end
-	end)
-
-	local TemporaryConnection = Connect(__index(game, "DescendantAdded"), function() end)
-	Disconnect = TemporaryConnection.Disconnect
-	Disconnect(TemporaryConnection)
+    ESP_MAIN.Name                    = 'ESP'
+    ESP_MAIN.Adornee                 = BASE
+    ESP_MAIN.AlwaysOnTop             = true
+    ESP_MAIN.ExtentsOffset           = Vector3.new(0, 1, 0)
+    ESP_MAIN.Size                    = UDim2.new(0, 5, 0, 5)
+    
+    ESP_DOT.Name                     = 'DOT'
+    ESP_DOT.BackgroundColor          = BrickColor.new('Bright red')
+    ESP_DOT.BackgroundTransparency   = 0.3
+    ESP_DOT.BorderSizePixel          = 0
+    ESP_DOT.Position                 = UDim2.new(-0.5, 0, -0.5, 0)
+    ESP_DOT.Size                     = UDim2.new(2, 0, 2, 0)
+    ESP_DOT.Visible                  = true
+    ESP_DOT.ZIndex                   = 10
 end
 
---// Checking for multiple processes
-
-if ExunysDeveloperAimbot then
-	ExunysDeveloperAimbot:Exit()
+function CLEAR()
+    for _,v in pairs(PLAYER.PlayerGui:children()) do
+        if v.Name == 'ESP' and v:IsA('BillboardGui') then
+            v:Destroy()
+        end
+    end
 end
 
---// Environment
-
-getgenv().ExunysDeveloperAimbot = {
-	DeveloperSettings = {
-		UpdateMode = "RenderStepped",
-		TeamCheckOption = "TeamColor",
-		RainbowSpeed = 1 -- Bigger = Slower
-	},
-
-	Settings = {
-		Enabled = true,
-
-		TeamCheck = false,
-		AliveCheck = true,
-		WallCheck = false,
-
-		OffsetToMoveDirection = false,
-		OffsetIncrement = 15,
-
-		Sensitivity = 0, -- Animation length (in seconds) before fully locking onto target
-		Sensitivity2 = 3.5, -- mousemoverel Sensitivity
-
-		LockMode = 1, -- 1 = CFrame; 2 = mousemoverel
-		LockPart = "Head", -- Body part to lock on
-
-		TriggerKey = Enum.UserInputType.MouseButton2,
-		Toggle = false
-	},
-
-	FOVSettings = {
-		Enabled = true,
-		Visible = true,
-
-		Radius = 90,
-		NumSides = 60,
-
-		Thickness = 1,
-		Transparency = 1,
-		Filled = false,
-
-		RainbowColor = false,
-		RainbowOutlineColor = false,
-		Color = Color3fromRGB(255, 255, 255),
-		OutlineColor = Color3fromRGB(0, 0, 0),
-		LockedColor = Color3fromRGB(255, 150, 150)
-	},
-
-	Blacklisted = {},
-	FOVCircle = Drawingnew("Circle"),
-	FOVCircleOutline = Drawingnew("Circle")
-}
-
-local Environment = getgenv().ExunysDeveloperAimbot
-
-SetRenderProperty(Environment.FOVCircle, "Visible", false)
-SetRenderProperty(Environment.FOVCircleOutline, "Visible", false)
-
---// Core Functions
-
-local FixUsername = function(String)
-	local Result
-
-	for _, Value in next, GetPlayers(Players) do
-		local Name = __index(Value, "Name")
-
-		if stringsub(stringlower(Name), 1, #String) == stringlower(String) then
-			Result = Name
-		end
-	end
-
-	return Result
+function FIND()
+    CLEAR()
+    TRACK = true
+    spawn(function()
+        while wait() do
+            if TRACK then
+                CLEAR()
+                for i,v in pairs(game.Players:GetChildren()) do
+                    if v.Character and v.Character:FindFirstChild('Head') then
+                        if _G.FREE_FOR_ALL == false then
+                            if v.TeamColor ~= PLAYER.TeamColor then
+                                if v.Character:FindFirstChild('Head') then
+                                    CREATE(v.Character.Head, true)
+                                end
+                            end
+                        else
+                            if v.Character:FindFirstChild('Head') then
+                                CREATE(v.Character.Head, true)
+                            end
+                        end
+                    end
+                end
+            end
+        end
+        wait(1)
+    end)
 end
 
-local GetRainbowColor = function()
-	local RainbowSpeed = Environment.DeveloperSettings.RainbowSpeed
-
-	return Color3fromHSV(tick() % RainbowSpeed / RainbowSpeed, 1, 1)
-end
-
-local ConvertVector = function(Vector)
-	return Vector2new(Vector.X, Vector.Y)
-end
-
-local CancelLock = function()
-	Environment.Locked = nil
-
-	local FOVCircle = UWP and Environment.FOVCircle or Environment.FOVCircle.__OBJECT
-
-	SetRenderProperty(FOVCircle, "Color", Environment.FOVSettings.Color)
-	__newindex(UserInputService, "MouseDeltaSensitivity", OriginalSensitivity)
-
-	if Animation then
-		Animation:Cancel()
-	end
-end
-
-local GetClosestPlayer = function()
-	local Settings = Environment.Settings
-	local LockPart = Settings.LockPart
-
-	if not Environment.Locked then
-		RequiredDistance = Environment.FOVSettings.Enabled and Environment.FOVSettings.Radius or 2000
-
-		for _, Value in next, GetPlayers(Players) do
-			local Character = __index(Value, "Character")
-			local Humanoid = Character and FindFirstChildOfClass(Character, "Humanoid")
-
-			if Value ~= LocalPlayer and not tablefind(Environment.Blacklisted, __index(Value, "Name")) and Character and FindFirstChild(Character, LockPart) and Humanoid then
-				local PartPosition, TeamCheckOption = __index(Character[LockPart], "Position"), Environment.DeveloperSettings.TeamCheckOption
-
-				if Settings.TeamCheck and __index(Value, TeamCheckOption) == __index(LocalPlayer, TeamCheckOption) then
-					continue
-				end
-
-				if Settings.AliveCheck and __index(Humanoid, "Health") <= 0 then
-					continue
-				end
-
-				if Settings.WallCheck then
-					local BlacklistTable = GetDescendants(__index(LocalPlayer, "Character"))
-
-					for _, Value in next, GetDescendants(Character) do
-						BlacklistTable[#BlacklistTable + 1] = Value
-					end
-
-					if #GetPartsObscuringTarget(Camera, {PartPosition}, BlacklistTable) > 0 then
-						continue
-					end
-				end
-
-				local Vector, OnScreen, Distance = WorldToViewportPoint(Camera, PartPosition)
-				Vector = ConvertVector(Vector)
-				Distance = (GetMouseLocation(UserInputService) - Vector).Magnitude
-
-				if Distance < RequiredDistance and OnScreen then
-					RequiredDistance, Environment.Locked = Distance, Value
-				end
-			end
-		end
-	elseif (GetMouseLocation(UserInputService) - ConvertVector(WorldToViewportPoint(Camera, __index(__index(__index(Environment.Locked, "Character"), LockPart), "Position")))).Magnitude > RequiredDistance then
-		CancelLock()
-	end
-end
-
-local Load = function()
-	OriginalSensitivity = __index(UserInputService, "MouseDeltaSensitivity")
-
-	local Settings, FOVCircle, FOVCircleOutline, FOVSettings, Offset = Environment.Settings, Environment.FOVCircle, Environment.FOVCircleOutline, Environment.FOVSettings
-	local OffsetToMoveDirection, LockPart = Settings.OffsetToMoveDirection, Settings.LockPart
-
-	if not UWP then
-		FOVCircle, FOVCircleOutline = FOVCircle.__OBJECT, FOVCircleOutline.__OBJECT
-	end
-
-	SetRenderProperty(FOVCircle, "ZIndex", 2)
-	SetRenderProperty(FOVCircleOutline, "ZIndex", 1)
-
-	ServiceConnections.RenderSteppedConnection = Connect(__index(RunService, Environment.DeveloperSettings.UpdateMode), function()
-		if FOVSettings.Enabled and Settings.Enabled then
-			for Index, Value in next, FOVSettings do
-				if Index == "Color" then
-					continue
-				end
-
-				if pcall(GetRenderProperty, FOVCircle, Index) then
-					SetRenderProperty(FOVCircle, Index, Value)
-					SetRenderProperty(FOVCircleOutline, Index, Value)
-				end
-			end
-
-			SetRenderProperty(FOVCircle, "Color", (Environment.Locked and FOVSettings.LockedColor) or FOVSettings.RainbowColor and GetRainbowColor() or FOVSettings.Color)
-			SetRenderProperty(FOVCircleOutline, "Color", FOVSettings.RainbowOutlineColor and GetRainbowColor() or FOVSettings.OutlineColor)
-
-			SetRenderProperty(FOVCircleOutline, "Thickness", FOVSettings.Thickness + 1)
-			SetRenderProperty(FOVCircle, "Position", GetMouseLocation(UserInputService))
-			SetRenderProperty(FOVCircleOutline, "Position", GetMouseLocation(UserInputService))
-		else
-			SetRenderProperty(FOVCircle, "Visible", false)
-			SetRenderProperty(FOVCircleOutline, "Visible", false)
-		end
-
-		if Running and Settings.Enabled then
-			GetClosestPlayer()
-
-			Offset = OffsetToMoveDirection and __index(FindFirstChildOfClass(__index(Environment.Locked, "Character"), "Humanoid"), "MoveDirection") * (mathclamp(Settings.OffsetIncrement, 1, 30) / 10) or Vector3zero
-
-			if Environment.Locked then
-				local LockedPosition_Vector3 = __index(__index(Environment.Locked, "Character")[LockPart], "Position")
-				local LockedPosition = WorldToViewportPoint(Camera, LockedPosition_Vector3 + Offset)
-
-				local RelativeSensitivity = ReciprocalRelativeSensitivity and (1 / Settings.Sensitivity2) or Settings.Sensitivity2
-
-				if Environment.Settings.LockMode == 2 then
-					mousemoverel((LockedPosition.X - GetMouseLocation(UserInputService).X) * RelativeSensitivity, (LockedPosition.Y - GetMouseLocation(UserInputService).Y) * RelativeSensitivity)
-				else
-					if Settings.Sensitivity > 0 then
-						Animation = TweenService:Create(Camera, TweenInfonew(Environment.Settings.Sensitivity, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {CFrame = CFramenew(Camera.CFrame.Position, LockedPosition_Vector3)})
-						Animation:Play()
-					else
-						__newindex(Camera, "CFrame", CFramenew(Camera.CFrame.Position, LockedPosition_Vector3 + Offset))
-					end
-
-					__newindex(UserInputService, "MouseDeltaSensitivity", 0)
-				end
-
-				SetRenderProperty(FOVCircle, "Color", FOVSettings.LockedColor)
-			end
-		end
-	end)
-
-	ServiceConnections.InputBeganConnection = Connect(__index(UserInputService, "InputBegan"), function(Input)
-		local TriggerKey, Toggle = Settings.TriggerKey, Settings.Toggle
-
-		if Typing then
-			return
-		end
-
-		if Input.UserInputType == Enum.UserInputType.Keyboard and Input.KeyCode == TriggerKey or Input.UserInputType == TriggerKey then
-			if Toggle then
-				Running = not Running
-
-				if not Running then
-					CancelLock()
-				end
-			else
-				Running = true
-			end
-		end
-	end)
-
-	ServiceConnections.InputEndedConnection = Connect(__index(UserInputService, "InputEnded"), function(Input)
-		local TriggerKey, Toggle = Settings.TriggerKey, Settings.Toggle
-
-		if Toggle or Typing then
-			return
-		end
-
-		if Input.UserInputType == Enum.UserInputType.Keyboard and Input.KeyCode == TriggerKey or Input.UserInputType == TriggerKey then
-			Running = false
-			CancelLock()
-		end
-	end)
-end
-
---// Typing Check
-
-ServiceConnections.TypingStartedConnection = Connect(__index(UserInputService, "TextBoxFocused"), function()
-	Typing = true
+MOUSE.Button2Down:connect(function()
+    ENABLED = true
 end)
 
-ServiceConnections.TypingEndedConnection = Connect(__index(UserInputService, "TextBoxFocusReleased"), function()
-	Typing = false
+MOUSE.Button2Up:connect(function()
+    ENABLED = false
 end)
 
---// Functions
+MOUSE.KeyDown:connect(function(KEY)
+    KEY = KEY:lower():byte()
+    if KEY == _G.ESP_BIND then
+        if ESP_ENABLED == false then
+            FIND()
+            ESP_ENABLED = true
+            print('ESP : ON')
+        elseif ESP_ENABLED == true then
+            wait()
+            CLEAR()
+            TRACK = false
+            ESP_ENABLED = false
+            print('ESP : OFF')
+        end
+    end
+end)
 
-function Environment.Exit(self) -- METHOD | ExunysDeveloperAimbot:Exit(<void>)
-	assert(self, "EXUNYS_AIMBOT-V3.Exit: Missing parameter #1 \"self\" <table>.")
+MOUSE.KeyDown:connect(function(KEY)
+    if KEY == _G.CHANGE_AIM then
+        if _G.AIM_AT == 'Head' then
+            _G.AIM_AT = 'Torso'
+            GUI_AIM_AT.Text = 'AIMING : TORSO'
+        elseif _G.AIM_AT == 'Torso' then
+            _G.AIM_AT = 'Head'
+            GUI_AIM_AT.Text = 'AIMING : HEAD'
+        end
+    end
+end)
 
-	for Index, _ in next, ServiceConnections do
-		Disconnect(ServiceConnections[Index])
-	end
+game:GetService('RunService').RenderStepped:connect(function()
+    if ENABLED then
+        local TARGET = GetNearestPlayerToMouse()
+        if (TARGET ~= false) then
+            local AIM = TARGET.Character:FindFirstChild(_G.AIM_AT)
+            if AIM then
+                CC.CoordinateFrame = CFrame.new(CC.CoordinateFrame.p, AIM.CFrame.p)
+            end
+            GUI_TARGET.Text = 'AIMBOT : ' .. TARGET.Name:sub(1, 5)
+        else
+            GUI_TARGET.Text = 'AIMBOT : OFF'
+        end
+    end
+end)
 
-	Load = nil; ConvertVector = nil; CancelLock = nil; GetClosestPlayer = nil; GetRainbowColor = nil; FixUsername = nil
-
-	self.FOVCircle:Remove()
-	self.FOVCircleOutline:Remove()
-	getgenv().ExunysDeveloperAimbot = nil
-end
-
-function Environment.Restart() -- ExunysDeveloperAimbot.Restart(<void>)
-	for Index, _ in next, ServiceConnections do
-		Disconnect(ServiceConnections[Index])
-	end
-
-	Load()
-end
-
-function Environment.Blacklist(self, Username) -- METHOD | ExunysDeveloperAimbot:Blacklist(<string> Player Name)
-	assert(self, "EXUNYS_AIMBOT-V3.Blacklist: Missing parameter #1 \"self\" <table>.")
-	assert(Username, "EXUNYS_AIMBOT-V3.Blacklist: Missing parameter #2 \"Username\" <string>.")
-
-	Username = FixUsername(Username)
-
-	assert(self, "EXUNYS_AIMBOT-V3.Blacklist: User "..Username.." couldn't be found.")
-
-	self.Blacklisted[#self.Blacklisted + 1] = Username
-end
-
-function Environment.Whitelist(self, Username) -- METHOD | ExunysDeveloperAimbot:Whitelist(<string> Player Name)
-	assert(self, "EXUNYS_AIMBOT-V3.Whitelist: Missing parameter #1 \"self\" <table>.")
-	assert(Username, "EXUNYS_AIMBOT-V3.Whitelist: Missing parameter #2 \"Username\" <string>.")
-
-	Username = FixUsername(Username)
-
-	assert(Username, "EXUNYS_AIMBOT-V3.Whitelist: User "..Username.." couldn't be found.")
-
-	local Index = tablefind(self.Blacklisted, Username)
-
-	assert(Index, "EXUNYS_AIMBOT-V3.Whitelist: User "..Username.." is not blacklisted.")
-
-	tableremove(self.Blacklisted, Index)
-end
-
-Environment.Load = Load -- ExunysDeveloperAimbot.Load()
-
-setmetatable(Environment, {__call = Load})
-
-return Environment
+repeat
+    wait()
+    if ESP_ENABLED == true then
+        FIND()
+    end
+until ESP_ENABLED == false
